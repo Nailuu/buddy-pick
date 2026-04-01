@@ -30,6 +30,21 @@ export function deleteCompanionData(): void {
   }
 }
 
+export function getCompanionName(): string | null {
+  const config = readClaudeConfig()
+  const companion = config.companion as { name?: string } | undefined
+  return companion?.name ?? null
+}
+
+export function renameCompanion(newName: string): boolean {
+  const config = readClaudeConfig()
+  const companion = config.companion as Record<string, unknown> | undefined
+  if (!companion) return false
+  companion.name = newName
+  writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify(config, null, 2) + '\n')
+  return true
+}
+
 function parseVersion(version: string): number[] | null {
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)/)
   if (!match) return null

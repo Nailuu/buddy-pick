@@ -2,7 +2,7 @@ import { select, input, confirm } from '@inquirer/prompts'
 import ora from 'ora'
 import pc from 'picocolors'
 
-import { checkMinVersion, getUserId, deleteCompanionData } from './config.js'
+import { checkMinVersion, getUserId, deleteCompanionData, getCompanionName, renameCompanion } from './config.js'
 import { findClaudeBinary, detectCurrentSalt, patchBinary, restoreBinary, hasBackup } from './binary.js'
 import { initHasher, hashStringAsync, shutdownHasher } from './hash.js'
 import { rollCompanion } from './roll.js'
@@ -66,11 +66,15 @@ export async function runInteractiveFlow(): Promise<void> {
   // Main menu loop
   let running = true
   while (running) {
+    const companionName = getCompanionName()
     const action = await select({
       message: 'What would you like to do?',
       choices: [
         { name: 'Browse species gallery', value: 'gallery' },
         { name: 'Bruteforce search for specific companion', value: 'bruteforce' },
+        ...(companionName
+          ? [{ name: `Rename companion (current: ${companionName})`, value: 'rename' as const }]
+          : []),
         { name: 'Preview a custom salt', value: 'preview' },
         ...(hasBackup(binaryPath)
           ? [{ name: 'Restore original (from backup)', value: 'restore' as const }]
@@ -88,6 +92,9 @@ export async function runInteractiveFlow(): Promise<void> {
         break
       case 'gallery':
         await handleGallery(userId)
+        break
+      case 'rename':
+        await handleRename()
         break
       case 'restore':
         await handleRestore(binaryPath)
@@ -269,6 +276,33 @@ async function handleGallery(_userId: string): Promise<void> {
     console.log(`  ${color(`${stars} ${r}`)}`)
   }
   console.log()
+}
+
+async function handleRename(): Promise<void> {
+  const currentName = getCompanionName()
+  if (!currentName) {
+    console.log(pc.yellow('\n  No companion found. Hatch one first with /buddy in Claude Code.\n'))
+    return
+  }
+
+  console.log(pc.dim(`\n  Current name: ${currentName}`))
+
+  const newName = await input({
+    message: 'New companion name:',
+    validate: (s) => {
+      const trimmed = s.trim()
+      if (trimmed.length === 0) return 'Name cannot be empty'
+      if (trimmed.length > 50) return 'Name too long (max 50 characters)'
+      return true
+    },
+  })
+
+  const ok = renameCompanion(newName.trim())
+  if (ok) {
+    console.log(pc.green(`\n  Renamed to ${pc.bold(newName.trim())}!\n`))
+  } else {
+    console.log(pc.red('\n  Failed — no companion data found in ~/.claude.json\n'))
+  }
 }
 
 async function handleRestore(binaryPath: string): Promise<void> {
