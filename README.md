@@ -98,7 +98,11 @@ View all 18 species ASCII art side-by-side with eye styles, hat types, and rarit
 
 ### Bruteforce Search
 
-Filter by **species**, **rarity**, and **shiny** status. buddy-pick iterates candidate salts at thousands per second (via a bun subprocess for hash accuracy) and presents matching companions for you to pick from.
+Filter by **species**, **rarity**, **eyes**, **hat**, and **shiny** status. buddy-pick iterates candidate salts at thousands per second (via a bun subprocess for hash accuracy) and finds the perfect companion for you.
+
+### Claudex
+
+Your personal companion collection. Every patched buddy is automatically saved to the Claudex (`~/.config/buddy-pick/claudex.json`). When a Claude Code update overwrites your binary, open the Claudex and re-apply any saved companion with one click — no bruteforcing needed. You can also preview, rename, or delete entries.
 
 ### Rename Companion
 

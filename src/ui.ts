@@ -9,6 +9,7 @@ import { rollCompanion } from './roll.js'
 import { renderCompanionCard, renderCompanionCompact, RARITY_COLOR } from './display.js'
 import { renderSprite } from './sprites.js'
 import { isValidSalt, bruteforceSalts, type BruteforceFilter } from './salt.js'
+import { getClaudexEntries, addToClaudex, removeFromClaudex, renameClaudexEntry, type ClaudexEntry } from './claudex.js'
 import { SPECIES, RARITIES, RARITY_STARS, SALT_LENGTH, EYES, HATS, type Species, type Rarity, type Eye, type Hat, type CompanionBones } from './types.js'
 
 const BRUTEFORCE_PREFIX = 'buddy-pick-'
@@ -67,6 +68,7 @@ export async function runInteractiveFlow(): Promise<void> {
   let running = true
   while (running) {
     const companionName = getCompanionName()
+    const claudexEntries = getClaudexEntries()
     const action = await select({
       message: 'What would you like to do?',
       choices: [
@@ -75,6 +77,7 @@ export async function runInteractiveFlow(): Promise<void> {
         ...(companionName
           ? [{ name: `Rename companion (current: ${companionName})`, value: 'rename' as const }]
           : []),
+        { name: `Claudex${claudexEntries.length > 0 ? pc.dim(` (${claudexEntries.length} saved)`) : ''}`, value: 'claudex' },
         { name: 'Preview a custom salt', value: 'preview' },
         ...(hasBackup(binaryPath)
           ? [{ name: 'Restore original (from backup)', value: 'restore' as const }]
@@ -95,6 +98,9 @@ export async function runInteractiveFlow(): Promise<void> {
         break
       case 'rename':
         await handleRename()
+        break
+      case 'claudex':
+        await handleClaudex(userId, binaryPath, currentSalt)
         break
       case 'restore':
         await handleRestore(binaryPath)
@@ -126,7 +132,7 @@ async function handlePreview(userId: string, binaryPath: string, currentSalt: st
 
   const apply = await confirm({ message: 'Apply this salt?', default: false })
   if (apply) {
-    await applyPatch(binaryPath, currentSalt, salt)
+    await applyPatch(binaryPath, currentSalt, salt, companion)
   }
 }
 
@@ -211,7 +217,7 @@ async function handleBruteforce(userId: string, binaryPath: string, currentSalt:
 
   const apply = await confirm({ message: 'Apply this salt?', default: true })
   if (apply) {
-    await applyPatch(binaryPath, currentSalt, match.salt)
+    await applyPatch(binaryPath, currentSalt, match.salt, match.companion)
   }
 }
 
@@ -329,7 +335,101 @@ async function handleRestore(binaryPath: string): Promise<void> {
   }
 }
 
-async function applyPatch(binaryPath: string, oldSalt: string, newSalt: string): Promise<void> {
+async function handleClaudex(userId: string, binaryPath: string, currentSalt: string): Promise<void> {
+  const entries = getClaudexEntries()
+
+  if (entries.length === 0) {
+    console.log(pc.dim('\n  Your Claudex is empty. Patch a buddy to add it automatically.\n'))
+    return
+  }
+
+  console.log(pc.bold('\n  Claudex') + pc.dim(` — ${entries.length} saved companion${entries.length > 1 ? 's' : ''}\n`))
+
+  const action = await select({
+    message: 'Select a companion:',
+    choices: [
+      ...entries.map((e, i) => ({
+        name: formatClaudexEntry(e, e.salt === currentSalt),
+        value: i,
+      })),
+      { name: pc.dim('Back'), value: -1 },
+    ],
+  })
+
+  if (action < 0) return
+
+  const entry = entries[action]!
+
+  const entryAction = await select({
+    message: `${entry.name || entry.species} — what to do?`,
+    choices: [
+      ...(entry.salt !== currentSalt
+        ? [{ name: 'Apply this salt', value: 'apply' as const }]
+        : [{ name: pc.dim('Already active'), value: 'noop' as const }]),
+      { name: 'Preview full card', value: 'preview' as const },
+      { name: 'Rename entry', value: 'rename' as const },
+      { name: pc.red('Delete from Claudex'), value: 'delete' as const },
+      { name: pc.dim('Back'), value: 'back' as const },
+    ],
+  })
+
+  switch (entryAction) {
+    case 'apply': {
+      const hash = await hashStringAsync(userId + entry.salt)
+      const companion = rollCompanion(hash)
+      console.log()
+      console.log(renderCompanionCard(companion, entry.salt))
+      console.log()
+      await applyPatch(binaryPath, currentSalt, entry.salt, companion)
+      break
+    }
+    case 'preview': {
+      const hash = await hashStringAsync(userId + entry.salt)
+      const companion = rollCompanion(hash)
+      console.log()
+      console.log(renderCompanionCard(companion, entry.salt))
+      console.log()
+      break
+    }
+    case 'rename': {
+      const newName = await input({
+        message: 'Label for this entry:',
+        default: entry.name || '',
+        validate: (s) => s.trim().length > 0 || 'Name cannot be empty',
+      })
+      renameClaudexEntry(entry.salt, newName.trim())
+      console.log(pc.green(`\n  Renamed to ${pc.bold(newName.trim())}\n`))
+      break
+    }
+    case 'delete': {
+      const sure = await confirm({ message: 'Remove from Claudex?', default: false })
+      if (sure) {
+        removeFromClaudex(entry.salt)
+        console.log(pc.green('\n  Removed.\n'))
+      }
+      break
+    }
+  }
+}
+
+function formatClaudexEntry(entry: ClaudexEntry, isActive: boolean): string {
+  const color = RARITY_COLOR[entry.rarity as keyof typeof RARITY_COLOR] ?? pc.dim
+  const stars = RARITY_STARS[entry.rarity as keyof typeof RARITY_STARS] ?? ''
+  const shiny = entry.shiny ? ' ✨' : ''
+  const hat = entry.hat !== 'none' ? ` 🎩 ${entry.hat}` : ''
+  const label = entry.name ? pc.bold(entry.name) + ' ' : ''
+  const active = isActive ? pc.green(' (active)') : ''
+  const date = pc.dim(new Date(entry.savedAt).toLocaleDateString())
+
+  return `${label}${color(`${stars} ${entry.rarity}`)} ${entry.species} ${entry.eye}${hat}${shiny}${active} ${date}`
+}
+
+async function applyPatch(
+  binaryPath: string,
+  oldSalt: string,
+  newSalt: string,
+  companion?: CompanionBones,
+): Promise<void> {
   const proceed = await confirm({
     message: 'This will modify your Claude binary. A backup will be created. Continue?',
     default: true,
@@ -340,7 +440,14 @@ async function applyPatch(binaryPath: string, oldSalt: string, newSalt: string):
   try {
     const result = patchBinary(binaryPath, oldSalt, newSalt)
     deleteCompanionData()
-    console.log(pc.green(`\n  Patched ${result.patchedCount} occurrences`))
+
+    // Auto-save to Claudex
+    if (companion) {
+      addToClaudex(newSalt, companion)
+      console.log(pc.dim('\n  Saved to Claudex'))
+    }
+
+    console.log(pc.green(`  Patched ${result.patchedCount} occurrences`))
     console.log(pc.dim(`  Backup: ${result.backupPath}`))
     console.log(pc.dim('  Cleared companion data from ~/.claude.json'))
     console.log()
