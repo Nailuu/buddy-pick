@@ -25,6 +25,10 @@
     "companion",
     "cli"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Nailuu/buddy-pick"
+  },
   "license": "MIT",
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",
