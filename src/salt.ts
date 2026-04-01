@@ -1,4 +1,4 @@
-import { SALT_LENGTH, type CompanionBones, type Rarity, type Species } from './types.js'
+import { SALT_LENGTH, type CompanionBones, type Eye, type Hat, type Rarity, type Species } from './types.js'
 import { hashBatch } from './hash.js'
 import { rollCompanion } from './roll.js'
 
@@ -26,6 +26,8 @@ export function generateRandomSalt(prefix = ''): string {
 export interface BruteforceFilter {
   species?: Species
   rarity?: Rarity
+  eye?: Eye
+  hat?: Hat
   shiny?: boolean
 }
 
@@ -43,6 +45,8 @@ export interface BruteforceProgress {
 function matchesFilter(companion: CompanionBones, filter: BruteforceFilter): boolean {
   if (filter.species && companion.species !== filter.species) return false
   if (filter.rarity && companion.rarity !== filter.rarity) return false
+  if (filter.eye && companion.eye !== filter.eye) return false
+  if (filter.hat && companion.hat !== filter.hat) return false
   if (filter.shiny !== undefined && companion.shiny !== filter.shiny) return false
   return true
 }

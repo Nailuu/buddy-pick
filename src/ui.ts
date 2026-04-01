@@ -6,10 +6,10 @@ import { checkMinVersion, getUserId, deleteCompanionData, getCompanionName, rena
 import { findClaudeBinary, detectCurrentSalt, patchBinary, restoreBinary, hasBackup } from './binary.js'
 import { initHasher, hashStringAsync, shutdownHasher } from './hash.js'
 import { rollCompanion } from './roll.js'
-import { renderCompanionCard, renderCompanionCompact } from './display.js'
+import { renderCompanionCard, renderCompanionCompact, RARITY_COLOR } from './display.js'
 import { renderSprite } from './sprites.js'
 import { isValidSalt, bruteforceSalts, type BruteforceFilter } from './salt.js'
-import { SPECIES, RARITIES, RARITY_STARS, SALT_LENGTH, EYES, HATS, type Species, type Rarity, type CompanionBones } from './types.js'
+import { SPECIES, RARITIES, RARITY_STARS, SALT_LENGTH, EYES, HATS, type Species, type Rarity, type Eye, type Hat, type CompanionBones } from './types.js'
 
 const BRUTEFORCE_PREFIX = 'buddy-pick-'
 
@@ -132,7 +132,7 @@ async function handlePreview(userId: string, binaryPath: string, currentSalt: st
 
 async function handleBruteforce(userId: string, binaryPath: string, currentSalt: string): Promise<void> {
   const speciesChoice = await select({
-    message: 'Filter by species:',
+    message: 'Species:',
     choices: [
       { name: 'Any', value: '' },
       ...SPECIES.map((s) => ({ name: s, value: s })),
@@ -140,15 +140,35 @@ async function handleBruteforce(userId: string, binaryPath: string, currentSalt:
   })
 
   const rarityChoice = await select({
-    message: 'Filter by rarity:',
+    message: 'Rarity:',
     choices: [
       { name: 'Any', value: '' },
-      ...RARITIES.map((r) => ({ name: r, value: r })),
+      ...RARITIES.map((r) => ({ name: RARITY_COLOR[r](`${RARITY_STARS[r]} ${r}`), value: r })),
     ],
   })
 
+  const eyeChoice = await select({
+    message: 'Eyes:',
+    choices: [
+      { name: 'Any', value: '' },
+      ...EYES.map((e) => ({ name: e, value: e })),
+    ],
+  })
+
+  // Hat filter — only show if rarity is not common (common always gets 'none')
+  let hatChoice = ''
+  if (rarityChoice !== 'common') {
+    hatChoice = await select({
+      message: 'Hat:',
+      choices: [
+        { name: 'Any', value: '' },
+        ...HATS.map((h) => ({ name: h, value: h })),
+      ],
+    })
+  }
+
   const shinyChoice = await select({
-    message: 'Must be shiny?',
+    message: 'Shiny?',
     choices: [
       { name: 'Any', value: '' },
       { name: 'Yes', value: 'yes' },
@@ -159,6 +179,8 @@ async function handleBruteforce(userId: string, binaryPath: string, currentSalt:
   const filter: BruteforceFilter = {}
   if (speciesChoice) filter.species = speciesChoice as Species
   if (rarityChoice) filter.rarity = rarityChoice as Rarity
+  if (eyeChoice) filter.eye = eyeChoice as Eye
+  if (hatChoice) filter.hat = hatChoice as Hat
   if (shinyChoice === 'yes') filter.shiny = true
   if (shinyChoice === 'no') filter.shiny = false
 
@@ -167,10 +189,10 @@ async function handleBruteforce(userId: string, binaryPath: string, currentSalt:
   const spinner = ora('Searching...').start()
   let lastUpdate = Date.now()
 
-  const results = await bruteforceSalts(userId, filter, prefix, 20, (progress) => {
+  const results = await bruteforceSalts(userId, filter, prefix, 1, (progress) => {
     const now = Date.now()
     if (now - lastUpdate > 200) {
-      spinner.text = `Tested ${progress.tested.toLocaleString()} salts, found ${progress.found} matches...`
+      spinner.text = `Searching... tested ${progress.tested.toLocaleString()} salts`
       lastUpdate = now
     }
   })
@@ -182,31 +204,14 @@ async function handleBruteforce(userId: string, binaryPath: string, currentSalt:
     return
   }
 
-  console.log(pc.green(`\n  Found ${results.length} matches!\n`))
+  const match = results[0]!
+  console.log(pc.green('\n  Found a match!\n'))
+  console.log(renderCompanionCard(match.companion, match.salt))
+  console.log()
 
-  const choices = results.map((r, i) => ({
-    name: renderCompanionCompact(r.companion, r.salt),
-    value: i,
-  }))
-
-  const selected = await select({
-    message: 'Select a companion to apply:',
-    choices: [
-      ...choices,
-      { name: pc.dim('Cancel'), value: -1 },
-    ],
-  })
-
-  if (selected >= 0) {
-    const match = results[selected]!
-    console.log()
-    console.log(renderCompanionCard(match.companion, match.salt))
-    console.log()
-
-    const apply = await confirm({ message: 'Apply this salt?', default: true })
-    if (apply) {
-      await applyPatch(binaryPath, currentSalt, match.salt)
-    }
+  const apply = await confirm({ message: 'Apply this salt?', default: true })
+  if (apply) {
+    await applyPatch(binaryPath, currentSalt, match.salt)
   }
 }
 

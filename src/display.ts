@@ -7,7 +7,7 @@ import {
 } from "./types.js";
 import { renderSprite } from "./sprites.js";
 
-const RARITY_COLOR: Record<Rarity, (s: string) => string> = {
+export const RARITY_COLOR: Record<Rarity, (s: string) => string> = {
   common: pc.dim,
   uncommon: pc.green,
   rare: pc.blue,
