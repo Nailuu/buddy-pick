@@ -132,7 +132,7 @@ async function handlePreview(userId: string, binaryPath: string, currentSalt: st
 
   const apply = await confirm({ message: 'Apply this salt?', default: false })
   if (apply) {
-    await applyPatch(binaryPath, currentSalt, salt, companion)
+    await applyPatch(binaryPath, salt, companion)
   }
 }
 
@@ -217,7 +217,7 @@ async function handleBruteforce(userId: string, binaryPath: string, currentSalt:
 
   const apply = await confirm({ message: 'Apply this salt?', default: true })
   if (apply) {
-    await applyPatch(binaryPath, currentSalt, match.salt, match.companion)
+    await applyPatch(binaryPath, match.salt, match.companion)
   }
 }
 
@@ -380,7 +380,7 @@ async function handleClaudex(userId: string, binaryPath: string, currentSalt: st
       console.log()
       console.log(renderCompanionCard(companion, entry.salt))
       console.log()
-      await applyPatch(binaryPath, currentSalt, entry.salt, companion)
+      await applyPatch(binaryPath, entry.salt, companion)
       break
     }
     case 'preview': {
@@ -426,7 +426,6 @@ function formatClaudexEntry(entry: ClaudexEntry, isActive: boolean): string {
 
 async function applyPatch(
   binaryPath: string,
-  oldSalt: string,
   newSalt: string,
   companion?: CompanionBones,
 ): Promise<void> {
@@ -438,6 +437,13 @@ async function applyPatch(
   if (!proceed) return
 
   try {
+    // Re-detect salt from the binary right before patching to avoid stale reads
+    // (e.g. if Claude auto-updated since we started)
+    const oldSalt = detectCurrentSalt(binaryPath)
+    if (!oldSalt) {
+      console.log(pc.red('\n  Patch failed: Could not detect current salt in binary\n'))
+      return
+    }
     const result = patchBinary(binaryPath, oldSalt, newSalt)
     deleteCompanionData()
 
