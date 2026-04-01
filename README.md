@@ -2,11 +2,43 @@
 
 > Choose your own Claude Code `/buddy` companion.
 
+<p align="center">
+  <img src="demo.gif" alt="buddy-pick demo" width="800">
+</p>
+
 **buddy-pick** is an interactive CLI that lets you preview, search, and pick the exact `/buddy` companion you want in Claude Code — then patches the binary to make it happen.
 
 ```
 npx buddy-pick
 ```
+
+---
+
+## Features
+
+### Browse Species Gallery
+
+View all 18 species ASCII art side-by-side with eye styles, hat types, and rarity tiers — directly in your terminal.
+
+### Bruteforce Search
+
+Filter by **species**, **rarity**, **eyes**, **hat**, and **shiny** status. buddy-pick iterates candidate salts at thousands per second (via a bun subprocess for hash accuracy) and finds the perfect companion for you.
+
+### Claudex
+
+Your personal companion collection. Every patched buddy is automatically saved to the Claudex (`~/.config/buddy-pick/claudex.json`). When a Claude Code update overwrites your binary, open the Claudex and re-apply any saved companion with one click — no bruteforcing needed. You can also preview, rename, or delete entries.
+
+### Rename Companion
+
+Change your companion's name without modifying the binary. Writes directly to `~/.claude.json` — takes effect immediately, no restart needed.
+
+### Preview Custom Salt
+
+Enter any 15-character salt and instantly see what companion it would produce — species, rarity, stats, hat, eyes, and shiny status — all rendered in a boxed card with stat bars.
+
+### Restore from Backup
+
+One-click restore to the original binary from the `.buddy-pick.bak` backup.
 
 ---
 
@@ -78,52 +110,15 @@ Six eye styles: `·` `✦` `×` `◉` `@` `°`
 
 ## Rarity
 
-| Rarity | Stars | Chance | Stat Floor |
-|---|---|---|---|
-| Common | ★ | 60% | 5 |
-| Uncommon | ★★ | 25% | 15 |
-| Rare | ★★★ | 10% | 25 |
-| Epic | ★★★★ | 4% | 35 |
-| Legendary | ★★★★★ | 1% | 50 |
+| Rarity    | Stars | Chance | Stat Floor |
+| --------- | ----- | ------ | ---------- |
+| Common    | ★     | 60%    | 5          |
+| Uncommon  | ★★    | 25%    | 15         |
+| Rare      | ★★★   | 10%    | 25         |
+| Epic      | ★★★★  | 4%     | 35         |
+| Legendary | ★★★★★ | 1%     | 50         |
 
 Plus a **1% shiny** chance on any rarity.
-
----
-
-## Features
-
-### Browse Species Gallery
-
-View all 18 species ASCII art side-by-side with eye styles, hat types, and rarity tiers — directly in your terminal.
-
-### Bruteforce Search
-
-Filter by **species**, **rarity**, **eyes**, **hat**, and **shiny** status. buddy-pick iterates candidate salts at thousands per second (via a bun subprocess for hash accuracy) and finds the perfect companion for you.
-
-### Claudex
-
-Your personal companion collection. Every patched buddy is automatically saved to the Claudex (`~/.config/buddy-pick/claudex.json`). When a Claude Code update overwrites your binary, open the Claudex and re-apply any saved companion with one click — no bruteforcing needed. You can also preview, rename, or delete entries.
-
-### Rename Companion
-
-Change your companion's name without modifying the binary. Writes directly to `~/.claude.json` — takes effect immediately, no restart needed.
-
-### Preview Custom Salt
-
-Enter any 15-character salt and instantly see what companion it would produce — species, rarity, stats, hat, eyes, and shiny status — all rendered in a boxed card with stat bars.
-
-### Binary Patching
-
-Safely patch the Claude binary with your chosen salt. buddy-pick:
-- Creates a backup automatically (`.buddy-pick.bak`)
-- Finds the salt using structural anchors (works even if previously patched)
-- Patches all 3 occurrences atomically
-- Clears companion data so Claude Code re-hatches on next `/buddy`
-- Works even while Claude Code is running (atomic write via temp + rename)
-
-### Restore from Backup
-
-One-click restore to the original binary from the `.buddy-pick.bak` backup.
 
 ---
 
