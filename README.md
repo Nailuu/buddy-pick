@@ -1,15 +1,25 @@
-# buddy-pick
+# buddy-pick — Pick your Claude Code `/buddy` companion
 
-> Choose your own Claude Code `/buddy` companion.
+[![npm](https://img.shields.io/npm/v/buddy-pick)](https://www.npmjs.com/package/buddy-pick)
+[![license](https://img.shields.io/npm/l/buddy-pick)](LICENSE)
 
 <p align="center">
-  <img src="demo.gif" alt="buddy-pick demo" width="800">
+  <img src="https://raw.githubusercontent.com/Nailuu/buddy-pick/main/demo.gif" alt="buddy-pick demo" width="800">
+  <br>
+  <em>An interactive CLI to preview, search, and pick the exact <code>/buddy</code> companion you want — then patch the binary to make it happen.</em>
 </p>
 
-**buddy-pick** is an interactive CLI that lets you preview, search, and pick the exact `/buddy` companion you want in Claude Code — then patches the binary to make it happen.
+## Install
 
-```
+```bash
 npx buddy-pick
+```
+
+Or install globally:
+
+```bash
+npm install -g buddy-pick
+buddy-pick
 ```
 
 ---
