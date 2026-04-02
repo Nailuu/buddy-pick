@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, copyFileSync, existsSync, renameSync, statSync, chmodSync } from 'node:fs'
+import { readFileSync, writeFileSync, copyFileSync, existsSync, renameSync, statSync, chmodSync, realpathSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { SALT_LENGTH } from './types.js'
@@ -12,10 +12,10 @@ const ANCHOR_SCAN_RANGE = 200
 
 export function findClaudeBinary(): string | null {
   try {
-    // Follow symlinks to the actual binary
-    const resolved = execFileSync('readlink', ['-f', execFileSync('which', ['claude'], { encoding: 'utf-8' }).trim()], {
-      encoding: 'utf-8',
-    }).trim()
+    const whichCmd = process.platform === 'win32' ? 'where' : 'which'
+    const found = execFileSync(whichCmd, ['claude'], { encoding: 'utf-8' }).trim().split(/\r?\n/)[0]!
+    // realpathSync follows symlinks cross-platform (replaces Unix-only readlink -f)
+    const resolved = realpathSync(found)
     if (existsSync(resolved)) return resolved
   } catch {}
   return null
