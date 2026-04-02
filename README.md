@@ -1,6 +1,7 @@
 # buddy-pick — Pick your Claude Code `/buddy` companion
 
 [![npm](https://img.shields.io/npm/v/buddy-pick)](https://www.npmjs.com/package/buddy-pick)
+[![downloads](https://img.shields.io/npm/dt/buddy-pick)](https://www.npmjs.com/package/buddy-pick)
 [![license](https://img.shields.io/npm/l/buddy-pick)](LICENSE)
 
 <p align="center">
