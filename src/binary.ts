@@ -79,6 +79,7 @@ export function restoreBinary(binaryPath: string): boolean {
   if (!existsSync(backupPath)) return false
   const buf = readFileSync(backupPath)
   atomicWrite(binaryPath, buf)
+  resignBinaryIfMac(binaryPath)
   return true
 }
 
@@ -101,6 +102,23 @@ function atomicWrite(targetPath: string, buf: Buffer): void {
   const { mode } = statSync(targetPath)
   chmodSync(tmpPath, mode)
   renameSync(tmpPath, targetPath)
+}
+
+// On macOS, modifying a signed binary invalidates its code signature.
+// The OS will kill the process on launch (SIGKILL) unless we re-sign it.
+// Ad-hoc signing (-s -) doesn't require an Apple Developer certificate.
+function resignBinaryIfMac(binaryPath: string): void {
+  if (process.platform !== 'darwin') return
+  try {
+    execFileSync('codesign', ['-f', '-s', '-', binaryPath], { stdio: 'ignore' })
+  } catch {
+    // codesign not available or failed — warn but don't block
+    console.warn(
+      '\n⚠️  Could not re-sign the binary (codesign failed).\n' +
+      '   macOS may prevent Claude from launching.\n' +
+      '   Try running manually: codesign -f -s - ' + binaryPath + '\n',
+    )
+  }
 }
 
 export function patchBinary(
@@ -133,5 +151,6 @@ export function patchBinary(
   }
 
   atomicWrite(binaryPath, buf)
+  resignBinaryIfMac(binaryPath)
   return { patchedCount, backupPath }
 }
