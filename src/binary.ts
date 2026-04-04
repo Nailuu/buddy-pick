@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, copyFileSync, existsSync, renameSync, statSync, chmodSync, realpathSync } from 'node:fs'
+import { readFileSync, writeFileSync, copyFileSync, existsSync, renameSync, unlinkSync, statSync, chmodSync, realpathSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { SALT_LENGTH } from './types.js'
@@ -101,7 +101,37 @@ function atomicWrite(targetPath: string, buf: Buffer): void {
   // Preserve original file permissions (executable bits)
   const { mode } = statSync(targetPath)
   chmodSync(tmpPath, mode)
-  renameSync(tmpPath, targetPath)
+  if (process.platform === 'win32') {
+    windowsReplaceFile(tmpPath, targetPath)
+  } else {
+    renameSync(tmpPath, targetPath)
+  }
+}
+
+// Windows does not allow renaming over a file that is open/locked by another
+// process (EPERM). Workaround: move the original out of the way first, then
+// rename the temp file into place, then delete the displaced original.
+function windowsReplaceFile(tmpPath: string, targetPath: string): void {
+  const oldPath = `${targetPath}.buddy-pick-old-${process.pid}`
+  try {
+    renameSync(targetPath, oldPath)
+  } catch (err: any) {
+    try { unlinkSync(tmpPath) } catch {}
+    throw new Error(
+      `Cannot replace ${targetPath}: the file appears to be locked by another process.\n` +
+      `Close all Claude sessions and try again.\n` +
+      `(${err.message})`,
+    )
+  }
+  try {
+    renameSync(tmpPath, targetPath)
+  } catch (err: any) {
+    // Restore the original before giving up
+    try { renameSync(oldPath, targetPath) } catch {}
+    try { unlinkSync(tmpPath) } catch {}
+    throw err
+  }
+  try { unlinkSync(oldPath) } catch {}
 }
 
 // On macOS, modifying a signed binary invalidates its code signature.
