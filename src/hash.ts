@@ -51,28 +51,35 @@ export async function initHasher(): Promise<boolean> {
   scriptPath = join(tmpdir(), `buddy-pick-hasher-${process.pid}.js`);
   writeFileSync(scriptPath, HASHER_SCRIPT);
 
-  bunProcess = spawn(bunPath, [scriptPath], {
-    stdio: ["pipe", "pipe", "ignore"],
-  });
+  try {
+    bunProcess = spawn(bunPath, [scriptPath], {
+      stdio: ["pipe", "pipe", "ignore"],
+    });
 
-  // Handle spawn failures (e.g. Windows .bin shim not directly executable)
-  // so Node doesn't crash with an unhandled 'error' event.
-  const spawnFailed = new Promise<boolean>((resolve) => {
-    bunProcess!.on("error", () => resolve(true));
-  });
+    // Handle spawn failures (e.g. Windows .bin shim not directly executable)
+    // so Node doesn't crash with an unhandled 'error' event.
+    const spawnFailed = new Promise<boolean>((resolve) => {
+      bunProcess!.on("error", () => resolve(true));
+    });
 
-  rl = createInterface({ input: bunProcess.stdout! });
-  rl.on("line", (line) => {
-    const resolve = pendingResolves.shift();
-    if (resolve) resolve(Number(line));
-  });
+    rl = createInterface({ input: bunProcess.stdout! });
+    rl.on("line", (line) => {
+      const resolve = pendingResolves.shift();
+      if (resolve) resolve(Number(line));
+    });
 
-  // Wait for process to be ready by sending a test hash — or a spawn error
-  const testResult = await Promise.race([
-    hashStringAsync("__buddy_pick_init__"),
-    spawnFailed.then(() => NaN),
-  ]);
-  if (typeof testResult !== "number" || isNaN(testResult)) {
+    // Wait for process to be ready by sending a test hash — or a spawn error
+    const testResult = await Promise.race([
+      hashStringAsync("__buddy_pick_init__"),
+      spawnFailed.then(() => NaN),
+    ]);
+    if (typeof testResult !== "number" || isNaN(testResult)) {
+      shutdownHasher();
+      useFallback = true;
+      return false;
+    }
+  } catch {
+    // spawn() can throw synchronously on Windows (e.g. UNKNOWN -4094)
     shutdownHasher();
     useFallback = true;
     return false;
