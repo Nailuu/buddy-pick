@@ -10,6 +10,7 @@ import { renderCompanionCard, renderCompanionCompact, RARITY_COLOR } from './dis
 import { renderSprite } from './sprites.js'
 import { isValidSalt, bruteforceSalts, type BruteforceFilter } from './salt.js'
 import { getClaudexEntries, addToClaudex, removeFromClaudex, renameClaudexEntry, type ClaudexEntry } from './claudex.js'
+import { readState, writeState, clearState } from './state.js'
 import { SPECIES, RARITIES, RARITY_STARS, SALT_LENGTH, EYES, HATS, type Species, type Rarity, type Eye, type Hat, type CompanionBones } from './types.js'
 
 const BRUTEFORCE_PREFIX = 'buddy-pick-'
@@ -36,12 +37,45 @@ export async function runInteractiveFlow(): Promise<void> {
   console.log(pc.dim(`  Binary: ${binaryPath}`))
 
   // Detect current salt
-  const currentSalt = detectCurrentSalt(binaryPath)
+  let currentSalt = detectCurrentSalt(binaryPath)
   if (!currentSalt) {
     console.log(pc.red('  Error: Could not detect SALT in binary. Unsupported binary format?'))
     process.exit(1)
   }
   console.log(pc.dim(`  Current salt: ${currentSalt}`))
+
+  // Check if buddy was lost (binary updated since last patch)
+  const savedState = readState()
+  if (savedState && savedState.lastAppliedSalt !== currentSalt) {
+    const entries = getClaudexEntries()
+    const entry = entries.find((e) => e.salt === savedState.lastAppliedSalt)
+    const label = entry
+      ? `${RARITY_STARS[entry.rarity as keyof typeof RARITY_STARS] ?? ''} ${entry.rarity} ${entry.species}${entry.name ? ` (${entry.name})` : ''}`
+      : `salt ${savedState.lastAppliedSalt}`
+
+    console.log(pc.yellow(`\n  Your buddy was lost — the Claude binary was updated.`))
+    console.log(pc.yellow(`  Last buddy: ${label}`))
+
+    const reapply = await confirm({
+      message: 'Re-apply your buddy?',
+      default: true,
+    })
+
+    if (reapply) {
+      try {
+        const result = patchBinary(binaryPath, currentSalt, savedState.lastAppliedSalt)
+        writeState(savedState.lastAppliedSalt, binaryPath)
+        deleteCompanionData()
+        currentSalt = savedState.lastAppliedSalt
+        console.log(pc.green(`  Restored! Patched ${result.patchedCount} occurrences.\n`))
+      } catch (err) {
+        console.log(pc.red(`  Restore failed: ${err instanceof Error ? err.message : err}`))
+        console.log(pc.dim('  Continuing with current companion.\n'))
+      }
+    } else {
+      clearState()
+    }
+  }
 
   // Init hasher
   const spinner = ora('Initializing hash engine...').start()
@@ -327,6 +361,7 @@ async function handleRestore(binaryPath: string): Promise<void> {
   const ok = restoreBinary(binaryPath)
   if (ok) {
     deleteCompanionData()
+    clearState()
     console.log(pc.green('\n  Restored!'))
     console.log(pc.yellow('  Restart your Claude Code instance for changes to take effect.'))
     console.log(pc.green('  Then run /buddy to re-hatch.\n'))
@@ -445,6 +480,7 @@ async function applyPatch(
       return
     }
     const result = patchBinary(binaryPath, oldSalt, newSalt)
+    writeState(newSalt, binaryPath)
     deleteCompanionData()
 
     // Auto-save to Claudex
@@ -458,7 +494,8 @@ async function applyPatch(
     console.log(pc.dim('  Cleared companion data from ~/.claude.json'))
     console.log()
     console.log(pc.yellow('  Restart your Claude Code instance for changes to take effect.'))
-    console.log(pc.green('  Then run /buddy to meet your new companion!\n'))
+    console.log(pc.green('  Then run /buddy to meet your new companion!'))
+    console.log(pc.dim('  Tip: to auto-restore after updates: claude update && npx buddy-pick --restore\n'))
   } catch (err) {
     console.log(pc.red(`\n  Patch failed: ${err instanceof Error ? err.message : err}\n`))
   }
