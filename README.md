@@ -1,5 +1,8 @@
 # buddy-pick — Pick your Claude Code `/buddy` companion
 
+> [!CAUTION]
+> **This project is no longer functional.** Anthropic removed the `/buddy` feature from Claude Code in version **2.1.97** (see [anthropics/claude-code#41924](https://github.com/anthropics/claude-code/issues/41924#issuecomment-4210792672)). buddy-pick will not work on Claude Code 2.1.97 or later. If the buddy system is reintroduced in the future, this project may be updated accordingly.
+
 [![npm](https://img.shields.io/npm/v/buddy-pick)](https://www.npmjs.com/package/buddy-pick)
 [![downloads](https://img.shields.io/npm/dt/buddy-pick)](https://www.npmjs.com/package/buddy-pick)
 [![license](https://img.shields.io/npm/l/buddy-pick)](LICENSE)
@@ -151,7 +154,7 @@ The production binary uses `Bun.hash()` (wyhash). No npm package produces matchi
 
 ## Requirements
 
-- **Claude Code >= 2.1.89** (buddy system introduced in this version)
+- **Claude Code >= 2.1.89 and < 2.1.97** (buddy system introduced in 2.1.89, removed in 2.1.97)
 - **Node.js >= 18**
 - **Bun** (recommended — auto-detected for accurate hash computation)
 
